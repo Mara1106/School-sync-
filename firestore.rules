@@ -1,0 +1,265 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidCourse(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.code is string && data.code.size() >= 1 && data.code.size() <= 24 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.instructor is string && data.instructor.size() <= 80 &&
+             data.colorHex is string && data.colorHex.size() >= 7 && data.colorHex.size() <= 9 &&
+             data.colorHex.matches('^#[0-9A-Fa-f]{6,8}$');
+    }
+
+    function isValidStudyItem(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.description is string && data.description.size() <= 500 &&
+             data.itemType in ['homework', 'exam'] &&
+             data.courseCode is string && data.courseCode.size() <= 24 &&
+             data.courseName is string && data.courseName.size() <= 80 &&
+             data.courseColorHex is string && data.courseColorHex.size() >= 7 && data.courseColorHex.size() <= 9 &&
+             data.courseColorHex.matches('^#[0-9A-Fa-f]{6,8}$') &&
+             data.location is string && data.location.size() <= 100 &&
+             data.dueAtMillis is int && data.dueAtMillis > 0 &&
+             data.durationMinutes is int && data.durationMinutes >= 5 && data.durationMinutes <= 720 &&
+             data.priority in ['low', 'medium', 'high'] &&
+             data.status in ['pending', 'completed'] &&
+             data.reminderMinutesBefore is int && data.reminderMinutesBefore >= 0 && data.reminderMinutesBefore <= 10080 &&
+             data.notifyEnabled is bool &&
+             data.googleCalendarEventId is string && data.googleCalendarEventId.size() <= 256 &&
+             data.calendarSyncedAtMillis is int && data.calendarSyncedAtMillis >= 0;
+    }
+
+    function isValidUserPreferences(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.pushNotificationsEnabled is bool &&
+             data.defaultHomeworkReminderMinutes is int &&
+             data.defaultHomeworkReminderMinutes >= 0 && data.defaultHomeworkReminderMinutes <= 10080 &&
+             data.defaultExamReminderMinutes is int &&
+             data.defaultExamReminderMinutes >= 0 && data.defaultExamReminderMinutes <= 10080 &&
+             data.dailyDigestEnabled is bool &&
+             data.dailyDigestHour is int && data.dailyDigestHour >= 0 && data.dailyDigestHour <= 23 &&
+             data.googleCalendarAutoSync is bool &&
+             data.lastCalendarSyncMillis is int && data.lastCalendarSyncMillis >= 0 &&
+             data.currentStreakDays is int && data.currentStreakDays >= 0 && data.currentStreakDays <= 10000 &&
+             data.longestStreakDays is int && data.longestStreakDays >= 0 && data.longestStreakDays <= 10000 &&
+             data.lastActiveDayKey is string && data.lastActiveDayKey.size() <= 16 &&
+             data.recentStreakDaysCsv is string && data.recentStreakDaysCsv.size() <= 180 &&
+             data.themeMode in ['suggested', 'light', 'dark'] &&
+             data.themePalette in ['indigo', 'emerald', 'sunset', 'violet', 'manual'] &&
+             data.manualAccentHex is string && data.manualAccentHex.size() >= 7 && data.manualAccentHex.size() <= 9 &&
+             data.manualAccentHex.matches('^#[0-9A-Fa-f]{6,8}$') &&
+             data.studentName is string && data.studentName.size() <= 80 &&
+             data.studentSchool is string && data.studentSchool.size() <= 100 &&
+             data.studentMajor is string && data.studentMajor.size() <= 80 &&
+             data.studentYear is string && data.studentYear.size() <= 40 &&
+             data.studentIdLabel is string && data.studentIdLabel.size() <= 40 &&
+             data.studyGoal is string && data.studyGoal.size() <= 160 &&
+             data.studentBio is string && data.studentBio.size() <= 400;
+    }
+
+    function isValidSubjectGrade(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.subjectCode is string && data.subjectCode.size() <= 24 &&
+             data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 80 &&
+             data.assessmentTitle is string && data.assessmentTitle.size() <= 100 &&
+             data.numericScore is number && data.numericScore >= 0 && data.numericScore <= 10000 &&
+             data.maxScore is number && data.maxScore > 0 && data.maxScore <= 10000 &&
+             data.letterGrade is string && data.letterGrade.size() >= 1 && data.letterGrade.size() <= 12 &&
+             data.courseColorHex is string && data.courseColorHex.size() >= 7 && data.courseColorHex.size() <= 9 &&
+             data.courseColorHex.matches('^#[0-9A-Fa-f]{6,8}$') &&
+             data.notes is string && data.notes.size() <= 300 &&
+             data.gradedAtMillis is int && data.gradedAtMillis > 0;
+    }
+
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /courses/{courseId} {
+        allow get: if isOwner(userId) && isValidId(courseId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().keys().hasAll(['userId', 'code', 'name', 'instructor', 'colorHex', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'code', 'name', 'instructor', 'colorHex', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidCourse(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidCourse(incoming(), userId) &&
+                         isValidId(courseId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['code', 'name', 'instructor', 'colorHex', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(courseId);
+      }
+
+      match /study_items/{itemId} {
+        allow get: if isOwner(userId) && isValidId(itemId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(itemId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'description', 'itemType',
+                           'courseCode', 'courseName', 'courseColorHex', 'location',
+                           'dueAtMillis', 'durationMinutes', 'priority', 'status',
+                           'reminderMinutesBefore', 'notifyEnabled',
+                           'googleCalendarEventId', 'calendarSyncedAtMillis',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'description', 'itemType',
+                           'courseCode', 'courseName', 'courseColorHex', 'location',
+                           'dueAtMillis', 'durationMinutes', 'priority', 'status',
+                           'reminderMinutesBefore', 'notifyEnabled',
+                           'googleCalendarEventId', 'calendarSyncedAtMillis',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidStudyItem(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidStudyItem(incoming(), userId) &&
+                         isValidId(itemId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time && (
+                           // Action: Full edit of homework/exam details
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'title', 'description', 'itemType', 'courseCode', 'courseName',
+                             'courseColorHex', 'location', 'dueAtMillis', 'durationMinutes',
+                             'priority', 'status', 'reminderMinutesBefore', 'notifyEnabled',
+                             'googleCalendarEventId', 'calendarSyncedAtMillis', 'updatedAt'
+                           ]) ||
+                           // Action: Toggle completion status
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+                           // Action: Record Google Calendar sync metadata
+                           incoming().diff(existing()).affectedKeys().hasOnly(['googleCalendarEventId', 'calendarSyncedAtMillis', 'updatedAt'])
+                         );
+
+        allow delete: if isOwner(userId) && isValidId(itemId);
+      }
+
+      match /settings/{settingId} {
+        allow get: if isOwner(userId) && isValidId(settingId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(settingId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'pushNotificationsEnabled',
+                           'defaultHomeworkReminderMinutes', 'defaultExamReminderMinutes',
+                           'dailyDigestEnabled', 'dailyDigestHour',
+                           'googleCalendarAutoSync', 'lastCalendarSyncMillis',
+                           'currentStreakDays', 'longestStreakDays',
+                           'lastActiveDayKey', 'recentStreakDaysCsv',
+                           'themeMode', 'themePalette', 'manualAccentHex',
+                           'studentName', 'studentSchool', 'studentMajor',
+                           'studentYear', 'studentIdLabel', 'studyGoal', 'studentBio',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'pushNotificationsEnabled',
+                           'defaultHomeworkReminderMinutes', 'defaultExamReminderMinutes',
+                           'dailyDigestEnabled', 'dailyDigestHour',
+                           'googleCalendarAutoSync', 'lastCalendarSyncMillis',
+                           'currentStreakDays', 'longestStreakDays',
+                           'lastActiveDayKey', 'recentStreakDaysCsv',
+                           'themeMode', 'themePalette', 'manualAccentHex',
+                           'studentName', 'studentSchool', 'studentMajor',
+                           'studentYear', 'studentIdLabel', 'studyGoal', 'studentBio',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidUserPreferences(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidUserPreferences(incoming(), userId) &&
+                         isValidId(settingId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'pushNotificationsEnabled', 'defaultHomeworkReminderMinutes',
+                           'defaultExamReminderMinutes', 'dailyDigestEnabled', 'dailyDigestHour',
+                           'googleCalendarAutoSync', 'lastCalendarSyncMillis',
+                           'currentStreakDays', 'longestStreakDays',
+                           'lastActiveDayKey', 'recentStreakDaysCsv',
+                           'themeMode', 'themePalette', 'manualAccentHex',
+                           'studentName', 'studentSchool', 'studentMajor',
+                           'studentYear', 'studentIdLabel', 'studyGoal', 'studentBio',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(settingId);
+      }
+
+      match /grades/{gradeId} {
+        allow get: if isOwner(userId) && isValidId(gradeId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(gradeId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'subjectCode', 'subjectName', 'assessmentTitle',
+                           'numericScore', 'maxScore', 'letterGrade', 'courseColorHex',
+                           'notes', 'gradedAtMillis', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'subjectCode', 'subjectName', 'assessmentTitle',
+                           'numericScore', 'maxScore', 'letterGrade', 'courseColorHex',
+                           'notes', 'gradedAtMillis', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidSubjectGrade(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidSubjectGrade(incoming(), userId) &&
+                         isValidId(gradeId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'subjectCode', 'subjectName', 'assessmentTitle',
+                           'numericScore', 'maxScore', 'letterGrade', 'courseColorHex',
+                           'notes', 'gradedAtMillis', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(gradeId);
+      }
+    }
+  }
+}

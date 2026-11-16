@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">StudySync</string>
+
+    <!-- Notification Channels -->
+    <string name="channel_homework_name">Homework Deadlines</string>
+    <string name="channel_homework_desc">Reminders before homework assignments are due.</string>
+    <string name="channel_exam_name">Exam Alerts</string>
+    <string name="channel_exam_desc">Urgent notifications ahead of scheduled exams and midterms.</string>
+    <string name="channel_digest_name">Daily Study Digest</string>
+    <string name="channel_digest_desc">Daily morning summary of upcoming homework and exams.</string>
+    <string name="action_mark_done">Mark Done</string>
+    <string name="digest_notification_title">Today\'s Study Plan</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Schedule</string>
+    <string name="nav_calendar">Calendar</string>
+    <string name="nav_courses">Courses</string>
+    <string name="nav_grades">Grades</string>
+    <string name="nav_alerts">Settings</string>
+
+    <!-- Auth Screen -->
+    <string name="auth_headline">Master every deadline &amp; exam.</string>
+    <string name="auth_subheadline">Track homework, schedule smart deadline alerts, and keep your Google Calendar effortlessly in sync.</string>
+    <string name="auth_cta_google">Sign in with Google</string>
+    <string name="auth_cta_guest">Continue without signing in</string>
+    <string name="auth_sync_note">Sign in for cloud backup &amp; Google Calendar sync, or start locally right away.</string>
+
+    <!-- Actions & Labels -->
+    <string name="add_study_item">Add Item</string>
+    <string name="sync_google_calendar">Sync Google Calendar</string>
+    <string name="send_test_notification">Send Test Alert</string>
+    <string name="enable_notifications">Enable Alerts</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="menu_settings">Settings menu</string>
+    <string name="student_profile_title">Student Profile</string>
+    <string name="save_profile">Save Student Profile</string>
+</resources>
